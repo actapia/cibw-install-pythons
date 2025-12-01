@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 from platform import machine
 from filelock import FileLock
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, ExitStack
+from unittest.mock import patch
 
 from cibuildwheel.platforms import macos as platform
 from cibuildwheel.util import resources
@@ -21,11 +22,15 @@ def handle_arguments():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
     macos_parser = subparsers.add_parser("macos")
+    macos_parser.add_argument("--fake-lock", action="store_true")
     return parser.parse_args()
 
-def macos_install():
+def macos_install(fake_lock=False):
     configs = platform.all_python_configurations()
-    with tempfile.TemporaryDirectory() as tmp_root:
+    with ExitStack() as stack:
+        tmp_root = stack.enter_context(tempfile.TemporaryDirectory())
+        if fake_lock:
+            stack.enter_context(patch("cibuildwheel.platforms.macos.FileLock"))
         for config in configs:
             arch = "_".join(config.identifier.split("-")[-1].split("_")[1:])
             if arch == machine():
@@ -54,7 +59,7 @@ def main():
     if args.command == "macos":
         with open(os.devnull, "w") as devnull:
             with redirect_stdout(devnull):
-                pythons = list(macos_install())
+                pythons = list(macos_install(args.fake_lock))
         for python in pythons:
             print(json.dumps(python))
  
