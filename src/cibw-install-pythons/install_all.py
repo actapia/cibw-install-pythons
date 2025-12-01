@@ -4,9 +4,11 @@ import inspect
 import os
 import shutil
 import sys
+import json
 from pathlib import Path
 from platform import machine
 from filelock import FileLock
+from contextlib import redirect_stdout
 
 from cibuildwheel.platforms import macos as platform
 from cibuildwheel.util import resources
@@ -42,12 +44,19 @@ def macos_install():
                 elif implementation_id.startswith("pp"):
                     base_python = platform.install_pypy(tmp, config.url)
                 elif implementation_id.startswith("gp"):
-                    base_python = platform.install_graalpy(tmp, config.url)    
+                    base_python = platform.install_graalpy(tmp, config.url)
+                config = vars(config)
+                config["python"] = str(base_python)
+                yield config
 
 def main():
     args = handle_arguments()
     if args.command == "macos":
-        macos_install()
+        with open(os.devnull, "w") as devnull:
+            with redirect_stdout(devnull):
+                pythons = list(macos_install())
+        for python in pythons:
+            print(json.dumps(python))
  
 
 if __name__ == "__main__":
