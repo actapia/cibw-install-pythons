@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import json
+import subprocess
 from pathlib import Path
 from platform import machine
 from filelock import FileLock
@@ -23,9 +24,11 @@ def handle_arguments():
     subparsers = parser.add_subparsers(dest="command", required=True)
     macos_parser = subparsers.add_parser("macos")
     macos_parser.add_argument("--fake-lock", action="store_true")
+    macos_parser.add_argument("--ensurepip", action="store_true")
+    macos_parser.add_argument("--link", action="store_true")    
     return parser.parse_args()
 
-def macos_install(fake_lock=False):
+def macos_install(fake_lock=False, ensurepip=False, link=False):
     configs = platform.all_python_configurations()
     with ExitStack() as stack:
         tmp_root = stack.enter_context(tempfile.TemporaryDirectory())
@@ -50,8 +53,17 @@ def macos_install(fake_lock=False):
                     base_python = platform.install_pypy(tmp, config.url)
                 elif implementation_id.startswith("gp"):
                     base_python = platform.install_graalpy(tmp, config.url)
+                if link:
+                    python_bin = base_python.parent / "python"
+                    if not python_bin.exists():
+                        python_bin.symlink_to(base_python.name)
                 config = vars(config)
-                config["python"] = str(base_python)
+                config["python"] = str(base_python)                 
+                if ensurepip:
+                    subprocess.run(
+                        [config["python"], "-m", "ensurepip"],
+                        check=True,
+                    )
                 yield config
 
 def main():
@@ -59,7 +71,13 @@ def main():
     if args.command == "macos":
         with open(os.devnull, "w") as devnull:
             with redirect_stdout(devnull):
-                pythons = list(macos_install(args.fake_lock))
+                pythons = list(
+                    macos_install(
+                        args.fake_lock,
+                        args.ensurepip,
+                        args.link,
+                    )
+                )
         for python in pythons:
             print(json.dumps(python))
  
