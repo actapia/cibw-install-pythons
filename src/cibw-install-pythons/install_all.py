@@ -47,12 +47,21 @@ def macos_install(fake_lock=False, ensurepip=False, link=False):
                         tmp,
                         config.version,
                         config.url,
-                        free_threading
+                        free_threading,
+                        config.sha256
                     )
                 elif implementation_id.startswith("pp"):
-                    base_python = platform.install_pypy(tmp, config.url)
+                    base_python = platform.install_pypy(
+                        tmp,
+                        config.url,
+                        config.sha256
+                    )
                 elif implementation_id.startswith("gp"):
-                    base_python = platform.install_graalpy(tmp, config.url)
+                    base_python = platform.install_graalpy(
+                        tmp,
+                        config.url,
+                        config.sha256
+                    )
                 if link:
                     python_bin = base_python.parent / "python"
                     if not python_bin.exists():
